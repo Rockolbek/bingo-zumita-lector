@@ -2,61 +2,114 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Bingo de Zumita</title>
-  <style>
-    body {
-      font: 17px system-ui;
-      max-width: 520px;
-      margin: 0 auto;
-      padding: 20px;
-      background: #fff8ed;
-      color: #452317;
-    }
-    h1 { text-align: center; }
-    video {
-      width: 100%;
-      border-radius: 12px;
-      background: #222;
-    }
-    button {
-      width: 100%;
-      padding: 15px;
-      background: #8b332a;
-      color: white;
-      border: 0;
-      border-radius: 10px;
-      font-size: 17px;
-    }
-    #estado { margin: 15px 0; white-space: pre-wrap; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bingo de Zumita - Lector QR</title>
+<style>
+body{font:17px system-ui;max-width:520px;margin:0 auto;padding:20px;background:#fff8ed;color:#452317}
+h1{text-align:center}
+video{width:100%;border-radius:12px;background:#222;max-height:55vh}
+#estado{padding:18px;border-radius:12px;background:#fff0bc;white-space:pre-wrap;margin:12px 0;overflow-wrap:anywhere}
+button{padding:14px;border:0;border-radius:10px;background:#8b332a;color:white;font-size:17px;width:100%;margin:10px 0}
+.ok{background:#d7f4dd!important;color:#145b2b}
+.bad{background:#ffded9!important;color:#84241d}
+</style>
 </head>
 <body>
-  <h1>🎟️ Bingo de Zumita</h1>
-  <p>Prueba de cámara del lector QR</p>
-  <video id="video" autoplay playsinline muted></video>
-  <p id="estado">Presiona el botón para comenzar.</p>
-  <button id="activar">Activar cámara</button>
+<h1>🎟️ Bingo de Zumita</h1>
+<p>Apunta la cámara al código QR de una entrada.</p>
+<video id="video" autoplay playsinline muted></video>
+<div id="estado">Presiona el botón para activar el lector.</div>
+<button id="boton">Activar lector QR</button>
+<script>
+const video=document.getElementById('video');
+const estado=document.getElementById('estado');
+const boton=document.getElementById('boton');
+const canvas=document.createElement('canvas');
+const ctx=canvas.getContext('2d',{willReadFrequently:true});
+let stream=null,activo=false,detector=null,jsqrListo=false;
 
-  <script>
-    const video = document.getElementById('video');
-    const estado = document.getElementById('estado');
+function mostrar(mensaje,tipo=''){
+ estado.className=tipo;
+ estado.textContent=mensaje;
+}
+function detener(){
+ activo=false;
+ if(stream){
+  stream.getTracks().forEach(t=>t.stop());
+  stream=null;
+ }
+ video.srcObject=null;
+}
+function cargarJSQR(){
+ return new Promise((resolve,reject)=>{
+  if(window.jsQR){resolve();return;}
+  const script=document.createElement('script');
+  script.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+  script.onload=resolve;
+  script.onerror=()=>reject(new Error('No se pudo cargar el detector QR'));
+  document.head.appendChild(script);
+ });
+}
+async function iniciar(){
+ detener();
+ mostrar('Activando cámara...');
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({
+   audio:false,
+   video:{facingMode:{ideal:'environment'}}
+  });
+  video.srcObject=stream;
+  await video.play();
 
-    document.getElementById('activar').onclick = async () => {
-      try {
-        estado.textContent = 'Solicitando acceso a la cámara...';
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: { ideal: 'environment' } }
-        });
-        video.srcObject = stream;
-        await video.play();
-        estado.textContent = '✓ Cámara funcionando correctamente';
-      } catch (e) {
-        estado.textContent = 'Error: ' + e.name + ': ' + e.message;
-      }
-    };
-  </script>
+  detector=null;
+  if('BarcodeDetector' in window){
+   try{
+    detector=new BarcodeDetector({formats:['qr_code']});
+   }catch(e){}
+  }
+  if(!detector && !jsqrListo){
+   await cargarJSQR();
+   jsqrListo=true;
+  }
+  activo=true;
+  mostrar('Cámara activa. Buscando código QR...');
+  boton.textContent='Reiniciar lector';
+  leer();
+ }catch(e){
+  detener();
+  mostrar('Error: '+e.name+': '+e.message,'bad');
+ }
+}
+async function leer(){
+ if(!activo)return;
+ try{
+  let codigo=null;
+  if(detector){
+   const resultados=await detector.detect(video);
+   if(resultados.length)codigo=resultados[0].rawValue;
+  }else if(video.readyState>=2 && video.videoWidth){
+   canvas.width=video.videoWidth;
+   canvas.height=video.videoHeight;
+   ctx.drawImage(video,0,0,canvas.width,canvas.height);
+   const imagen=ctx.getImageData(0,0,canvas.width,canvas.height);
+   const resultado=jsQR(imagen.data,canvas.width,canvas.height);
+   if(resultado)codigo=resultado.data;
+  }
+  if(codigo){
+   detener();
+   mostrar('✓ Código QR detectado correctamente.\n\nEl lector ya reconoce códigos QR.\n\nLa validación de pagos todavía no está conectada.','ok');
+   boton.textContent='Escanear siguiente QR';
+   return;
+  }
+ }catch(e){
+  detener();
+  mostrar('Error leyendo QR: '+e.message,'bad');
+  return;
+ }
+ requestAnimationFrame(leer);
+}
+boton.addEventListener('click',iniciar);
+</script>
 </body>
 </html>
