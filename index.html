@@ -22,7 +22,8 @@ button{padding:14px;border:0;border-radius:10px;background:#8b332a;color:white;f
 <div id="estado">Presiona el botón para activar el lector.</div>
 <button id="boton">Activar lector QR</button>
 <script>
-const video=document.getElementById('video');
+const URL_VALIDACION =
+'https://script.google.com/macros/s/AKfycbxaicYekSbG5eCYsOAM22k2SRVg1NxC3oPpckZhHNBSF1YsILnJEsvgBGjievqvspd4qQ/exec';
 const estado=document.getElementById('estado');
 const boton=document.getElementById('boton');
 const canvas=document.createElement('canvas');
@@ -96,12 +97,27 @@ async function leer(){
    const resultado=jsQR(imagen.data,canvas.width,canvas.height);
    if(resultado)codigo=resultado.data;
   }
-  if(codigo){
-   detener();
-   mostrar('✓ Código QR detectado correctamente.\n\nEl lector ya reconoce códigos QR.\n\nLa validación de pagos todavía no está conectada.','ok');
-   boton.textContent='Escanear siguiente QR';
-   return;
+  
+if(codigo){
+  detener();
+
+  const token = String(codigo).trim();
+
+  if(!/^[A-Za-z0-9_-]{20,100}$/.test(token)){
+    mostrar('QR inválido. No corresponde al formato de las entradas.','bad');
+    boton.textContent='Escanear siguiente QR';
+    return;
   }
+
+  mostrar('✓ QR detectado. Abriendo validación...','ok');
+
+  const destino = new URL(URL_VALIDACION);
+  destino.searchParams.set('token',token);
+
+  window.location.assign(destino.toString());
+  return;
+}
+
  }catch(e){
   detener();
   mostrar('Error leyendo QR: '+e.message,'bad');
