@@ -1,0 +1,62 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bingo de Zumita</title>
+  <style>
+    body {
+      font: 17px system-ui;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #fff8ed;
+      color: #452317;
+    }
+    h1 { text-align: center; }
+    video {
+      width: 100%;
+      border-radius: 12px;
+      background: #222;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      background: #8b332a;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      font-size: 17px;
+    }
+    #estado { margin: 15px 0; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>🎟️ Bingo de Zumita</h1>
+  <p>Prueba de cámara del lector QR</p>
+  <video id="video" autoplay playsinline muted></video>
+  <p id="estado">Presiona el botón para comenzar.</p>
+  <button id="activar">Activar cámara</button>
+
+  <script>
+    const video = document.getElementById('video');
+    const estado = document.getElementById('estado');
+
+    document.getElementById('activar').onclick = async () => {
+      try {
+        estado.textContent = 'Solicitando acceso a la cámara...';
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: 'environment' } }
+        });
+        video.srcObject = stream;
+        await video.play();
+        estado.textContent = '✓ Cámara funcionando correctamente';
+      } catch (e) {
+        estado.textContent = 'Error: ' + e.name + ': ' + e.message;
+      }
+    };
+  </script>
+</body>
+</html>
